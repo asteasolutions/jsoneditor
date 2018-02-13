@@ -680,41 +680,48 @@ exports.parsePath = function parsePath(jsonPath) {
   var prop, remainder;
 
   if (jsonPath.length === 0) {
-    return [];
+      return [];
   }
 
   // find a match like '.prop'
   var match = jsonPath.match(/^\.(\w+)/);
   if (match) {
-    prop = match[1];
-    remainder = jsonPath.substr(prop.length + 1);
+      prop = match[1];
+      remainder = jsonPath.substr(prop.length + 1);
   }
   else if (jsonPath[0] === '[') {
-    // find a match like
-    var end = jsonPath.indexOf(']');
-    if (end === -1) {
-      throw new SyntaxError('Character ] expected in path');
-    }
-    if (end === 1) {
-      throw new SyntaxError('Index expected after [');
-    }
-
-    var value = jsonPath.substring(1, end);
-    if (value[0] === '\'') {
+      var value, end;
       // ajv produces string prop names with single quotes, so we need
       // to reformat them into valid double-quoted JSON strings
-      value = '\"' + value.substring(1, value.length - 1) + '\"';
-    }
+      if(jsonPath[1] === '\'') {
+          var closeContainer = jsonPath.substring(2);
+          var stringEnd = closeContainer.indexOf('\']');
+          if (stringEnd < 0) {
+              throw new SyntaxError('Characters \'] expected in path');
+          }
+          value = '\"' + closeContainer.substring(0, stringEnd).replace(/"/g, '\\"') + '\"';
+          end = 3 + stringEnd
+      } else {
+          // find a match like
+          end = jsonPath.indexOf(']');
+          if (end === -1) {
+              throw new SyntaxError('Character ] expected in path');
+          }
+          if (end === 1) {
+              throw new SyntaxError('Index expected after [');
+          }
 
-    prop = value === '*' ? value : JSON.parse(value); // parse string and number
-    remainder = jsonPath.substr(end + 1);
+          var value = jsonPath.substring(1, end);
+      }
+      prop = value === '*' ? value : JSON.parse(value); // parse string and number
+      remainder = jsonPath.substr(end + 1);
   }
   else {
-    throw new SyntaxError('Failed to parse path');
+      throw new SyntaxError('Failed to parse path');
   }
 
   return [prop].concat(parsePath(remainder))
-};
+}
 
 /**
  * Improve the error message of a JSON schema error
